@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<title>Consultorio — Visor</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+    background:#f2f4f7; color:#222; font-size:15px; }
+
+  /* HEADER */
+  .app-header { background:#1a5fa8; color:#fff; padding:14px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,.2); }
+  .app-header h1 { font-size:17px; font-weight:bold; }
+  .app-header .sub { font-size:12px; opacity:.8; }
+  .btn-cargar { background:#fff; color:#1a5fa8; border:none; border-radius:8px;
+    padding:8px 14px; font-size:14px; font-weight:bold; cursor:pointer; }
+
+  /* PANTALLA INICIO */
+  #pantallaInicio { display:flex; flex-direction:column; align-items:center;
+    justify-content:center; min-height:70vh; padding:30px; text-align:center; }
+  .inicio-icon { font-size:64px; margin-bottom:16px; }
+  .inicio-titulo { font-size:22px; font-weight:bold; color:#1a5fa8; margin-bottom:8px; }
+  .inicio-sub { font-size:15px; color:#888; margin-bottom:32px; line-height:1.5; }
+  .btn-grande { background:#1a5fa8; color:#fff; border:none; border-radius:12px;
+    padding:16px 32px; font-size:17px; font-weight:bold; cursor:pointer;
+    width:100%; max-width:300px; box-shadow:0 4px 12px rgba(26,95,168,.3); }
+  .btn-grande:active { opacity:.8; }
+  .instrucciones { background:#fff; border-radius:12px; padding:16px;
+    text-align:left; max-width:400px; width:100%; margin-top:24px; }
+  .instrucciones li { font-size:14px; color:#555; margin-bottom:8px;
+    padding-left:8px; line-height:1.4; }
+
+  /* BUSQUEDA */
+  #pantallaApp { display:none; }
+  .search-bar { background:#fff; padding:12px 16px; border-bottom:1px solid #e0e0e0;
+    position:sticky; top:60px; z-index:99; }
+  .search-input { width:100%; padding:10px 14px; font-size:16px;
+    border:2px solid #d0ddf0; border-radius:10px; outline:none;
+    background:#f7f9fd; }
+  .search-input:focus { border-color:#1a5fa8; background:#fff; }
+  .search-info { font-size:12px; color:#888; margin-top:6px; padding:0 2px; }
+
+  /* LISTA DE PACIENTES */
+  #listaPacientes { padding:8px 12px; }
+  .pac-item { background:#fff; border-radius:10px; padding:14px;
+    margin-bottom:8px; box-shadow:0 1px 3px rgba(0,0,0,.08);
+    cursor:pointer; border:2px solid transparent; transition:border-color .15s; }
+  .pac-item:active { border-color:#1a5fa8; background:#f0f4fb; }
+  .pac-nombre { font-size:16px; font-weight:bold; color:#222; }
+  .pac-dni    { font-size:13px; color:#888; margin-top:2px; }
+  .pac-os     { font-size:13px; color:#1a5fa8; margin-top:3px; }
+  .sin-resultados { text-align:center; padding:40px 20px; color:#aaa; font-size:15px; }
+
+  /* DETALLE PACIENTE */
+  #pantallaDetalle { display:none; }
+  .back-btn { display:flex; align-items:center; gap:6px; padding:12px 16px;
+    background:#fff; border-bottom:1px solid #e0e0e0; cursor:pointer;
+    font-size:15px; color:#1a5fa8; font-weight:bold;
+    position:sticky; top:60px; z-index:99; }
+  .back-btn:active { background:#f0f4fb; }
+
+  /* FICHA PACIENTE */
+  .ficha { background:#fff; margin:12px; border-radius:12px;
+    overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.1); }
+  .ficha-header { background:#1a5fa8; color:#fff; padding:14px 16px; }
+  .ficha-nombre { font-size:19px; font-weight:bold; }
+  .ficha-edad  { font-size:13px; opacity:.85; margin-top:3px; }
+  .ficha-grid  { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+  .ficha-item  { padding:11px 16px; border-bottom:1px solid #f0f0f0; }
+  .ficha-item:nth-child(odd) { border-right:1px solid #f0f0f0; }
+  .ficha-item label { font-size:11px; color:#888; text-transform:uppercase;
+    letter-spacing:.03em; display:block; margin-bottom:3px; }
+  .ficha-item span  { font-size:14px; color:#333; font-weight:500; }
+  .ficha-item.full  { grid-column:1/-1; }
+
+  /* VISITAS */
+  .seccion-titulo { font-size:13px; font-weight:bold; color:#888;
+    text-transform:uppercase; letter-spacing:.04em;
+    padding:14px 16px 6px; }
+  .visita-card { background:#fff; margin:0 12px 8px; border-radius:10px;
+    overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  .visita-header { background:#f0f4fb; padding:10px 14px;
+    display:flex; align-items:center; gap:10px; cursor:pointer; }
+  .visita-fecha { font-size:14px; font-weight:bold; color:#1a5fa8; }
+  .visita-tipo  { font-size:12px; background:#e8f0fb; color:#1a5fa8;
+    padding:2px 8px; border-radius:8px; }
+  .visita-dx    { font-size:13px; color:#555; flex:1; }
+  .visita-peso  { font-size:13px; color:#888; white-space:nowrap; }
+  .visita-toggle { font-size:11px; color:#aaa; }
+  .visita-body  { display:none; padding:12px 14px; border-top:1px solid #e8f0fb; }
+  .visita-body.open { display:block; }
+  .v-campo      { margin-bottom:10px; }
+  .v-campo label { font-size:11px; color:#888; text-transform:uppercase;
+    letter-spacing:.03em; display:block; margin-bottom:2px; }
+  .v-campo p    { font-size:14px; color:#333; line-height:1.4;
+    white-space:pre-wrap; margin:0; }
+  .v-medidas    { display:grid; grid-template-columns:repeat(4,1fr);
+    gap:8px; background:#f7f9fd; border-radius:8px; padding:10px; margin-bottom:10px; }
+  .v-med-item   { text-align:center; }
+  .v-med-val    { font-size:15px; font-weight:bold; color:#333; }
+  .v-med-lbl    { font-size:10px; color:#888; }
+  .sin-visitas  { text-align:center; padding:20px; color:#aaa; font-size:14px; }
+
+  /* LOADING */
+  .loading { text-align:center; padding:40px; color:#888; }
+  .loading-spinner { font-size:36px; animation:spin 1s linear infinite;
+    display:inline-block; }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+  /* BADGE DB cargada */
+  /* Label como botón para iOS */
+  .btn-file-label { display:inline-block; background:#fff; color:#1a5fa8;
+    border:none; border-radius:8px; padding:8px 14px; font-size:14px;
+    font-weight:bold; cursor:pointer; }
+  .btn-file-label-grande { display:inline-block; background:#1a5fa8; color:#fff;
+    border-radius:12px; padding:16px 32px; font-size:17px; font-weight:bold;
+    cursor:pointer; width:100%; max-width:300px; text-align:center;
+    box-shadow:0 4px 12px rgba(26,95,168,.3); }
+  input[type=file] { position:absolute; left:-9999px; opacity:0; width:1px; height:1px; }
+  .db-badge { font-size:11px; background:rgba(255,255,255,.2);
+    border-radius:6px; padding:3px 8px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="app-header">
+  <div>
+    <div class="app-header h1" style="font-size:17px;font-weight:bold">🏥 Consultorio</div>
+    <div class="sub" id="headerSub">Dr. Daniel Irrazabal</div>
+  </div>
+  <label class="btn-file-label" for="fileInput">Cargar DB</label>
+  <input type="file" id="fileInput" accept=".db,.sqlite,.sqlite3" onchange="cargarDB(event)" />
+</div>
+
+<!-- PANTALLA INICIO -->
+<div id="pantallaInicio">
+  <div class="inicio-icon">📋</div>
+  <div class="inicio-titulo">Visor de Consultorio</div>
+  <div class="inicio-sub">Solo lectura — no modifica ningún dato.<br>Cargá la base de datos para consultar pacientes.</div>
+  <label class="btn-file-label-grande" for="fileInput">
+    📂 Cargar base de datos
+  </label>
+  <div class="instrucciones">
+    <ol>
+      <li>Copiá <strong>consultorio.db</strong> a iCloud Drive o Archivos del iPad</li>
+      <li>Tocá <strong>"Cargar base de datos"</strong></li>
+      <li>En el selector que aparece elegí <strong>Buscar...</strong> → iCloud Drive</li>
+      <li>Buscá pacientes por apellido o DNI</li>
+    </ol>
+  </div>
+</div>
+
+<!-- PANTALLA APP (búsqueda + lista) -->
+<div id="pantallaApp">
+  <div class="search-bar">
+    <input type="search" class="search-input" id="searchInput"
+      placeholder="Buscar por apellido o DNI..."
+      oninput="buscarPaciente(this.value)"
+      autocomplete="off" autocorrect="off" autocapitalize="off" />
+    <div class="search-info" id="searchInfo"></div>
+  </div>
+  <div id="listaPacientes"></div>
+</div>
+
+<!-- PANTALLA DETALLE -->
+<div id="pantallaDetalle">
+  <div class="back-btn" onclick="volverALista()">
+    ← Volver a la lista
+  </div>
+  <div id="contenidoDetalle"></div>
+</div>
+
+<!-- sql.js desde CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js"></script>
+<script>
+let _db = null;
+let _pacientes = [];
+
+// ── Cargar base de datos ──────────────────────────────────────────────────
+async function cargarDB(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  document.getElementById('pantallaInicio').style.display = 'none';
+  document.getElementById('pantallaApp').style.display = 'block';
+  document.getElementById('pantallaDetalle').style.display = 'none';
+  document.getElementById('listaPacientes').innerHTML =
+    '<div class="loading"><div class="loading-spinner">⏳</div><br>Cargando base de datos...</div>';
+
+  try {
+    const SQL = await initSqlJs({
+      locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${file}`
+    });
+
+    const buf = await file.arrayBuffer();
+    _db = new SQL.Database(new Uint8Array(buf));
+
+    // Cargar todos los pacientes en memoria
+    const res = _db.exec(`
+      SELECT id, dni, apellido, nombre, fecha_nacimiento, sexo,
+             telefono, email, obra_social, plan_os, afiliado,
+             domicilio, localidad, provincia, tutor_nombre, observaciones
+      FROM patients WHERE active = 1
+      ORDER BY apellido, nombre
+    `);
+
+    if (res.length && res[0].values.length) {
+      const cols = res[0].columns;
+      _pacientes = res[0].values.map(row => {
+        const p = {};
+        cols.forEach((c, i) => p[c] = row[i]);
+        return p;
+      });
+    }
+
+    const n = _pacientes.length;
+    document.getElementById('headerSub').innerHTML =
+      'Dr. Irrazabal &nbsp;<span class="db-badge">✓ ' + n + ' pacientes</span>';
+    document.getElementById('searchInfo').textContent = n + ' pacientes cargados';
+    renderLista(_pacientes);
+
+  } catch(e) {
+    document.getElementById('listaPacientes').innerHTML =
+      '<div class="sin-resultados">❌ Error al cargar: ' + e.message + '</div>';
+  }
+
+  event.target.value = ''; // reset para poder cargar de nuevo
+}
+
+// ── Búsqueda ──────────────────────────────────────────────────────────────
+function buscarPaciente(q) {
+  if (!_pacientes.length) return;
+  q = q.trim().toLowerCase();
+  if (!q) {
+    renderLista(_pacientes);
+    document.getElementById('searchInfo').textContent = _pacientes.length + ' pacientes';
+    return;
+  }
+  const filtrados = _pacientes.filter(p =>
+    (p.apellido || '').toLowerCase().includes(q) ||
+    (p.nombre   || '').toLowerCase().includes(q) ||
+    (p.dni      || '').includes(q)
+  );
+  renderLista(filtrados);
+  document.getElementById('searchInfo').textContent =
+    filtrados.length + ' resultado' + (filtrados.length !== 1 ? 's' : '');
+}
+
+// ── Render lista ──────────────────────────────────────────────────────────
+function renderLista(lista) {
+  const div = document.getElementById('listaPacientes');
+  if (!lista.length) {
+    div.innerHTML = '<div class="sin-resultados">Sin resultados para esa búsqueda.</div>';
+    return;
+  }
+  div.innerHTML = lista.map(p => {
+    const edad = calcEdadVisor(p.fecha_nacimiento);
+    const os = [p.obra_social, p.plan_os].filter(Boolean).join(' / ');
+    return `<div class="pac-item" onclick="verDetalle(${p.id})">
+      <div class="pac-nombre">${esc(p.apellido)}, ${esc(p.nombre)}</div>
+      <div class="pac-dni">DNI: ${esc(p.dni)} ${edad ? '· ' + edad : ''}</div>
+      ${os ? `<div class="pac-os">${esc(os)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Ver detalle de paciente ───────────────────────────────────────────────
+function verDetalle(patientId) {
+  document.getElementById('pantallaApp').style.display = 'none';
+  document.getElementById('pantallaDetalle').style.display = 'block';
+  document.getElementById('contenidoDetalle').innerHTML =
+    '<div class="loading"><div class="loading-spinner">⏳</div></div>';
+
+  const p = _pacientes.find(x => x.id === patientId);
+  if (!p) return;
+
+  const edad = calcEdadVisor(p.fecha_nacimiento);
+  const os = [p.obra_social, p.plan_os].filter(Boolean).join(' / ');
+
+  // Cargar visitas
+  let visitasHtml = '';
+  try {
+    const vRes = _db.exec(`
+      SELECT v.id, v.fecha, v.hora, v.tipo_consulta, v.motivo_consulta,
+             v.diagnostico_1, v.diagnostico_2, v.plan, v.medicacion,
+             v.observaciones, v.resultados_estudios,
+             m.peso, m.talla, m.pc, m.imc,
+             m.ta_sistolica, m.ta_diastolica, m.fc
+      FROM visits v
+      LEFT JOIN visit_measurements m ON m.visit_id = v.id
+      WHERE v.patient_id = ${patientId} AND v.status = 'active'
+      ORDER BY v.fecha DESC, v.created_at DESC
+      LIMIT 50
+    `);
+
+    if (vRes.length && vRes[0].values.length) {
+      const cols = vRes[0].columns;
+      const visitas = vRes[0].values.map(row => {
+        const v = {};
+        cols.forEach((c, i) => v[c] = row[i]);
+        return v;
+      });
+
+      visitasHtml = visitas.map((v, idx) => {
+        const dx = [v.diagnostico_1, v.diagnostico_2].filter(Boolean).join(' / ');
+        const tieneMedidas = v.peso || v.talla || v.pc;
+        const medidasHtml = tieneMedidas ? `
+          <div class="v-medidas">
+            ${medItem(v.peso,  'Peso',   'kg')}
+            ${medItem(v.talla, 'Talla',  'cm')}
+            ${medItem(v.pc,    'PC',     'cm')}
+            ${medItem(v.imc,   'IMC',    ''  )}
+          </div>` : '';
+        const taHtml = v.ta_sistolica
+          ? `<div class="v-campo"><label>TA / FC</label><p>${v.ta_sistolica}/${v.ta_diastolica} mmHg${v.fc ? ' · FC: ' + v.fc : ''}</p></div>` : '';
+
+        return `<div class="visita-card">
+          <div class="visita-header" onclick="toggleVisita(${idx})">
+            <span class="visita-fecha">${v.fecha || '—'}</span>
+            ${v.tipo_consulta ? `<span class="visita-tipo">${esc(v.tipo_consulta)}</span>` : ''}
+            <span class="visita-dx">${esc(dx) || ''}</span>
+            ${v.peso ? `<span class="visita-peso">${v.peso} kg</span>` : ''}
+            <span class="visita-toggle" id="vtoggle-${idx}">▼</span>
+          </div>
+          <div class="visita-body" id="vbody-${idx}">
+            ${medidasHtml}
+            ${taHtml}
+            ${vCampo('Motivo', v.motivo_consulta)}
+            ${vCampo('Diagnóstico 1', v.diagnostico_1)}
+            ${vCampo('Diagnóstico 2', v.diagnostico_2)}
+            ${vCampo('Plan / Indicaciones', v.plan)}
+            ${vCampo('Medicación', v.medicacion)}
+            ${vCampo('Resultados de estudios', v.resultados_estudios)}
+            ${vCampo('Observaciones', v.observaciones)}
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      visitasHtml = '<div class="sin-visitas">Sin consultas registradas.</div>';
+    }
+  } catch(e) {
+    visitasHtml = '<div class="sin-visitas">Error al cargar visitas.</div>';
+  }
+
+  document.getElementById('contenidoDetalle').innerHTML = `
+    <div class="ficha">
+      <div class="ficha-header">
+        <div class="ficha-nombre">${esc(p.apellido)}, ${esc(p.nombre)}</div>
+        <div class="ficha-edad">${edad ? edad + ' · ' : ''}${p.sexo === 'M' ? 'Masculino' : p.sexo === 'F' ? 'Femenino' : ''}</div>
+      </div>
+      <div class="ficha-grid">
+        ${fichaItem('DNI', p.dni)}
+        ${fichaItem('Fecha nac.', p.fecha_nacimiento)}
+        ${fichaItem('Obra social', os)}
+        ${fichaItem('Afiliado', p.afiliado)}
+        ${fichaItem('Teléfono', p.telefono)}
+        ${fichaItem('Email', p.email)}
+        ${fichaItem('Tutor', p.tutor_nombre)}
+        ${fichaItem('Localidad', [p.localidad, p.provincia].filter(Boolean).join(', '))}
+        ${p.observaciones ? fichaItem('Observaciones', p.observaciones, true) : ''}
+      </div>
+    </div>
+    <div class="seccion-titulo">Consultas (últimas 50)</div>
+    ${visitasHtml}
+    <div style="height:30px"></div>
+  `;
+}
+
+// ── Volver a la lista ─────────────────────────────────────────────────────
+function volverALista() {
+  document.getElementById('pantallaDetalle').style.display = 'none';
+  document.getElementById('pantallaApp').style.display = 'block';
+}
+
+// ── Toggle visita ─────────────────────────────────────────────────────────
+function toggleVisita(idx) {
+  const body   = document.getElementById('vbody-'   + idx);
+  const toggle = document.getElementById('vtoggle-' + idx);
+  const open   = body.classList.toggle('open');
+  toggle.textContent = open ? '▲' : '▼';
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function esc(v) {
+  if (!v) return '';
+  return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function fichaItem(label, val, full) {
+  if (!val) return '';
+  return `<div class="ficha-item${full?' full':''}"><label>${label}</label><span>${esc(String(val))}</span></div>`;
+}
+
+function vCampo(label, val) {
+  if (!val) return '';
+  return `<div class="v-campo"><label>${label}</label><p>${esc(String(val))}</p></div>`;
+}
+
+function medItem(val, lbl, unidad) {
+  return `<div class="v-med-item">
+    <div class="v-med-val">${val != null ? val + (unidad ? ' ' + unidad : '') : '—'}</div>
+    <div class="v-med-lbl">${lbl}</div>
+  </div>`;
+}
+
+function calcEdadVisor(fn) {
+  if (!fn) return '';
+  const hoy = new Date(), nac = new Date(fn + 'T00:00:00');
+  let a = hoy.getFullYear()-nac.getFullYear();
+  let mo = hoy.getMonth()-nac.getMonth();
+  let d = hoy.getDate()-nac.getDate();
+  if (d < 0) mo--;
+  if (mo < 0) { a--; mo += 12; }
+  const dias = Math.floor((hoy-nac)/86400000);
+  if (dias < 31) return dias + (dias===1?' día':' días');
+  if (a === 0) return mo + (mo===1?' mes':' meses');
+  return a + (a===1?' año':' años') + (mo?' ' + mo + (mo===1?' mes':' meses'):'');
+}
+</script>
+</body>
+</html>
