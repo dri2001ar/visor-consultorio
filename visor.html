@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Consultorio Pediátrico — Visor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+:root{
+  --bg:#f0f4f8;--surface:#fff;--border:#dde3ea;--text:#1e2d3d;--muted:#7a8fa6;
+  --blue:#1a6fc4;--blue-lt:#e8f1fb;
+  --m-color:#d6eeff;--m-border:#7bbde8;--m-text:#1a5fa8;
+  --f-color:#fff8d6;--f-border:#d4b800;--f-text:#7a6200;
+  --radius:10px;--shadow:0 2px 12px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+/* ── PANTALLA DE CARGA ── */
+#loadScreen{
+  position:fixed;inset:0;background:linear-gradient(135deg,#1a3a5c,#1a6fc4);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:9999;gap:20px;padding:24px;overflow-y:auto;
+}
+#loadScreen h1{color:#fff;font-size:24px;font-weight:800;text-align:center;}
+.load-card{background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);border-radius:14px;padding:24px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:12px;}
+.load-card label{color:rgba(255,255,255,.9);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+.load-card p{color:rgba(255,255,255,.6);font-size:12px;line-height:1.5;margin:4px 0 8px;}
+.load-card input[type=text]{width:100%;padding:11px 14px;border-radius:8px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:#fff;font-size:16px;font-family:'Nunito',sans-serif;outline:none;-webkit-appearance:none;}
+.load-card input::placeholder{color:rgba(255,255,255,.4);}
+.load-sep{text-align:center;color:rgba(255,255,255,.5);font-size:12px;font-weight:700;}
+.btn-carga{padding:13px 20px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;border:none;width:100%;font-family:'Nunito',sans-serif;}
+.btn-archivo{background:rgba(255,255,255,.2);color:#fff;border:1.5px solid rgba(255,255,255,.35);}
+.btn-url{background:#fff;color:var(--blue);}
+#loadError{color:#ffb3b3;font-size:13px;text-align:center;display:none;white-space:pre-wrap;}
+#hiddenFileInput{display:none;}
+
+/* ── APP SHELL — posición absoluta para scroll seguro en iOS ── */
+#app{display:none;position:fixed;inset:0;background:var(--bg);}
+#app.visible{display:block;}
+
+/* Elementos fijos en la parte superior */
+#appHeader{
+  position:absolute;top:0;left:0;right:0;z-index:20;
+  background:linear-gradient(90deg,#1a3a5c,#1a6fc4);
+  padding:10px 14px;display:flex;align-items:center;gap:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+#appHeader .logo{color:#fff;font-size:15px;font-weight:800;flex:1;line-height:1.2;}
+#appHeader .logo small{font-size:10px;font-weight:400;opacity:.7;}
+#headerInfo{color:rgba(255,255,255,.7);font-size:10px;text-align:right;line-height:1.4;flex-shrink:0;}
+#btnCambiar{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;
+  padding:7px 11px;border-radius:6px;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:'Nunito',sans-serif;}
+
+#searchBar{
+  position:absolute;left:0;right:0;z-index:20;
+  background:#e8eef5;border-bottom:1px solid var(--border);padding:7px 10px;
+}
+#searchInput{
+  width:100%;padding:11px 14px;border-radius:8px;
+  border:1.5px solid #c8d5e0;font-size:16px;
+  font-family:'Nunito',sans-serif;background:#fff;color:var(--text);
+  outline:none;-webkit-appearance:none;display:block;
+}
+#searchInput:focus{border-color:var(--blue);}
+
+#tabBar{
+  position:absolute;left:0;right:0;z-index:20;
+  background:#1a3a5c;display:none;
+}
+.tab-mv{
+  display:inline-block;width:50%;padding:11px 6px;text-align:center;
+  color:rgba(255,255,255,.6);font-size:13px;font-weight:700;
+  cursor:pointer;border-bottom:3px solid transparent;
+  font-family:'Nunito',sans-serif;
+}
+.tab-mv.active{color:#fff;border-bottom-color:#4baae8;}
+
+/* Paneles scrolleables — top/bottom calculados por JS */
+#listPane{
+  position:absolute;left:0;bottom:0;z-index:10;
+  background:var(--surface);
+  display:flex;flex-direction:column;
+  border-right:1px solid var(--border);
+}
+#listStats{
+  padding:7px 12px;font-size:11px;color:var(--muted);
+  border-bottom:1px solid var(--border);background:#f8fafc;flex-shrink:0;
+}
+#listBody{
+  flex:1;
+  overflow-y:scroll;          /* scroll en iOS requiere scroll, no auto */
+  -webkit-overflow-scrolling:touch;
+}
+
+#detailPane{
+  position:absolute;right:0;bottom:0;z-index:10;
+  overflow-y:scroll;
+  -webkit-overflow-scrolling:touch;
+  padding:14px;
+  display:flex;flex-direction:column;gap:14px;
+}
+
+/* Desktop: paneles lado a lado */
+@media(min-width:769px){
+  #listPane{width:300px;left:0;}
+  #detailPane{left:300px;}
+  #tabBar{display:none!important;}
+}
+
+/* Móvil: pestañas, un panel a la vez */
+@media(max-width:768px){
+  #tabBar{display:flex;}
+  #listPane,#detailPane{left:0;right:0;width:100%;}
+  .mv-oculto{display:none!important;}
+  #appHeader .logo small{display:none;}
+  #headerInfo{display:none;}
+  .vis-grid{grid-template-columns:1fr!important;}
+  .pac-grid{grid-template-columns:1fr 1fr!important;}
+  .btn-volver{display:block!important;}
+}
+
+/* ── LISTA ── */
+.pac-item{padding:11px 14px;border-bottom:1px solid #edf1f5;cursor:pointer;display:flex;flex-direction:column;gap:2px;}
+.pac-item.active,.pac-item:active{background:var(--blue-lt);}
+.pac-item.sexo-m{border-left:3px solid var(--m-border);}
+.pac-item.sexo-f{border-left:3px solid var(--f-border);}
+.pac-item.active.sexo-m{background:var(--m-color);}
+.pac-item.active.sexo-f{background:var(--f-color);}
+.pac-nombre{font-weight:700;font-size:13px;}
+.pac-sub{font-size:11px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
+.pac-badge{display:inline-block;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle;}
+.badge-m{background:var(--m-color);color:var(--m-text);border:1px solid var(--m-border);}
+.badge-f{background:var(--f-color);color:var(--f-text);border:1px solid var(--f-border);}
+.pac-nv{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* ── DETALLE ── */
+.btn-volver{
+  display:none;background:var(--blue-lt);border:1.5px solid var(--blue);color:var(--blue);
+  padding:11px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;
+  text-align:center;font-family:'Nunito',sans-serif;
+}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+.card-header{padding:11px 14px;font-weight:700;font-size:13px;color:#fff;background:linear-gradient(90deg,#1a3a5c,#1a6fc4);display:flex;align-items:center;gap:8px;}
+.card-header.sexo-m{background:linear-gradient(90deg,#1a5fa8,#4baae8);}
+.card-header.sexo-f{background:linear-gradient(90deg,#b89200,#e0b800);}
+.card-body{padding:12px 14px;}
+.pac-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 14px;}
+.dato{display:flex;flex-direction:column;gap:1px;}
+.dato label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.dato span{font-size:13px;font-weight:600;}
+.dato span.nd{color:var(--muted);font-weight:400;font-style:italic;}
+
+/* Visitas */
+.vis-filtros{padding:10px 14px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border);background:#fafbfc;}
+.vis-filtros input{
+  width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);
+  font-size:16px;font-family:'Nunito',sans-serif;background:#fff;outline:none;-webkit-appearance:none;
+}
+.vis-filtros input:focus{border-color:var(--blue);}
+.ffila{display:flex;gap:8px;}
+.ffila input{flex:1;}
+#vCnt{font-size:11px;color:var(--muted);}
+.vis-card{border:1px solid var(--border);border-radius:8px;margin:8px 14px;overflow:hidden;}
+.vis-card:last-child{margin-bottom:14px;}
+.vis-header{display:flex;align-items:center;gap:7px;padding:10px 12px;background:#f8fafc;cursor:pointer;flex-wrap:wrap;}
+.vis-fecha{font-weight:700;font-size:12px;color:var(--blue);font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+.vis-tipo{font-size:10px;background:var(--blue-lt);color:var(--blue);padding:2px 6px;border-radius:4px;font-weight:700;white-space:nowrap;}
+.vis-dx{font-size:12px;flex:1;min-width:60px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vis-peso{font-size:11px;color:var(--muted);white-space:nowrap;}
+.vis-tog{font-size:11px;color:var(--muted);white-space:nowrap;margin-left:auto;font-weight:700;}
+.vis-body{display:none;padding:12px;background:#fff;border-top:1px solid var(--border);}
+.vis-body.open{display:block;}
+.vis-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;}
+.vis-campo{display:flex;flex-direction:column;gap:2px;}
+.vis-campo.full{grid-column:1/-1;}
+.vis-campo label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.vis-campo p{font-size:13px;line-height:1.5;white-space:pre-wrap;}
+.meds{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.med{display:flex;flex-direction:column;align-items:center;background:var(--blue-lt);border-radius:6px;padding:5px 10px;min-width:54px;}
+.med .v{font-size:13px;font-weight:800;color:var(--blue);font-family:'JetBrains Mono',monospace;}
+.med .l{font-size:9px;color:var(--muted);text-transform:uppercase;}
+.msg{padding:40px;text-align:center;color:var(--muted);font-size:14px;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:#c0cdd8;border-radius:4px;}
+</style>
+</head>
+<body>
+
+<!-- PANTALLA DE CARGA -->
+<div id="loadScreen">
+  <h1>🩺 Consultorio Pediátrico</h1>
+  <div class="load-card">
+    <div>
+      <label>Desde archivo local</label>
+      <p>Abrí el <code style="background:rgba(255,255,255,.15);padding:1px 5px;border-radius:3px">visor_data.json</code> desde tu dispositivo.</p>
+      <button class="btn-carga btn-archivo" onclick="document.getElementById('hiddenFileInput').click()">📂 Elegir archivo</button>
+      <input type="file" id="hiddenFileInput" accept=".json,application/json" onchange="cargarArchivo(this)"/>
+    </div>
+    <div class="load-sep">— o —</div>
+    <div>
+      <label>Desde URL (GitHub)</label>
+      <input type="text" id="urlInput" placeholder="https://github.com/usuario/repo/blob/main/visor_data.json"
+        onkeydown="if(event.key==='Enter')cargarURL()" style="margin:8px 0;"/>
+      <button class="btn-carga btn-url" onclick="cargarURL()">⬇️ Cargar desde URL</button>
+    </div>
+    <div id="loadError"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="appHeader">
+    <div class="logo">🩺 Consultorio<small> — Visor</small></div>
+    <div id="headerInfo"></div>
+    <button id="btnCambiar" onclick="volverACarga()">↩ Cambiar</button>
+  </div>
+
+  <div id="searchBar">
+    <input type="text" id="searchInput" placeholder="Buscar apellido, nombre o DNI..."
+      oninput="filtrarLista()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+  </div>
+
+  <div id="tabBar">
+    <div class="tab-mv active" id="tabL" onclick="mostrarTab('lista')">📋 Pacientes</div>
+    <div class="tab-mv" id="tabD" onclick="mostrarTab('detalle')">📄 Detalle</div>
+  </div>
+
+  <div id="listPane">
+    <div id="listStats"></div>
+    <div id="listBody"><div class="msg">Cargando...</div></div>
+  </div>
+
+  <div id="detailPane">
+    <div class="msg" style="padding-top:80px;">← Seleccioná un paciente de la lista</div>
+  </div>
+</div>
+
+<script>
+let _datos=null,_filtrados=[],_sel=null;
+
+/* ── LAYOUT: calcula top de paneles según altura real de barras fijas ── */
+function layout(){
+  const hH = document.getElementById('appHeader').offsetHeight;
+  const sH = document.getElementById('searchBar').offsetHeight;
+  const tH = document.getElementById('tabBar').offsetHeight; // 0 en desktop
+  const top = hH + sH + tH;
+  const lp = document.getElementById('listPane');
+  const dp = document.getElementById('detailPane');
+  lp.style.top = top+'px';
+  dp.style.top = top+'px';
+  if(window.innerWidth >= 769){
+    lp.style.width = '300px';
+    lp.style.right = 'auto';
+    dp.style.left = '300px';
+    lp.classList.remove('mv-oculto');
+    dp.classList.remove('mv-oculto');
+  }
+}
+window.addEventListener('resize', layout);
+
+/* ── PESTAÑAS MÓVIL ── */
+function mostrarTab(tab){
+  const lp=document.getElementById('listPane');
+  const dp=document.getElementById('detailPane');
+  const tL=document.getElementById('tabL');
+  const tD=document.getElementById('tabD');
+  if(tab==='lista'){
+    lp.classList.remove('mv-oculto'); dp.classList.add('mv-oculto');
+    tL.classList.add('active'); tD.classList.remove('active');
+  } else {
+    dp.classList.remove('mv-oculto'); lp.classList.add('mv-oculto');
+    tD.classList.add('active'); tL.classList.remove('active');
+    dp.scrollTop=0;
+  }
+}
+
+/* ── CARGA ── */
+function cargarArchivo(input){
+  const f=input.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{try{iniciar(JSON.parse(e.target.result));}catch(e){error('JSON inválido: '+e.message);}};
+  r.onerror=()=>error('No se pudo leer el archivo.');
+  r.readAsText(f,'utf-8');
+}
+
+async function cargarURL(){
+  let url=document.getElementById('urlInput').value.trim();
+  if(!url){error('Ingresá una URL.');return;}
+  if(url.includes('github.com')&&!url.includes('raw.githubusercontent.com'))
+    url=url.replace('https://github.com/','https://raw.githubusercontent.com/').replace('/blob/','/')
+  const btn=document.querySelector('.btn-url');
+  btn.textContent='⏳ Descargando...';btn.disabled=true;
+  document.getElementById('loadError').style.display='none';
+  try{
+    const r=await fetch(url,{cache:'no-store'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    iniciar(await r.json(),url);
+  }catch(e){error('No se pudo cargar:\n'+e.message);}
+  finally{btn.textContent='⬇️ Cargar desde URL';btn.disabled=false;}
+}
+
+function error(msg){const e=document.getElementById('loadError');e.textContent=msg;e.style.display='block';}
+
+function iniciar(data,url){
+  if(!data||!Array.isArray(data.pacientes)){error('Formato incorrecto.');return;}
+  _datos=data;
+  if(url&&url.startsWith('http'))sessionStorage.setItem('visor_url',url);
+  const exp=data.exportado?new Date(data.exportado).toLocaleString('es-AR'):'—';
+  document.getElementById('headerInfo').innerHTML=data.total_pacientes+' pac.<br><span style="font-size:9px;opacity:.7">'+exp+'</span>';
+  document.getElementById('loadScreen').style.display='none';
+  document.getElementById('app').classList.add('visible');
+  _filtrados=[...data.pacientes].sort((a,b)=>(a.apellido||'').localeCompare(b.apellido||'','es'));
+  // En móvil ocultar detalle inicialmente
+  if(window.innerWidth<=768) document.getElementById('detailPane').classList.add('mv-oculto');
+  setTimeout(layout,60); // esperar render
+  renderLista();
+}
+
+/* ── LISTA ── */
+function filtrarLista(){
+  const q=document.getElementById('searchInput').value.trim().toLowerCase();
+  _filtrados=!q
+    ?[..._datos.pacientes].sort((a,b)=>(a.apellido||'').localeCompare(b.apellido||'','es'))
+    :_datos.pacientes.filter(p=>(p.apellido||'').toLowerCase().includes(q)||(p.nombre||'').toLowerCase().includes(q)||(p.dni||'').includes(q));
+  _sel=null;
+  renderLista();
+  document.getElementById('detailPane').innerHTML='<div class="msg" style="padding-top:60px">← Seleccioná un paciente</div>';
+}
+
+function renderLista(){
+  const lb=document.getElementById('listBody');
+  document.getElementById('listStats').textContent=_filtrados.length+' pacientes';
+  if(!_filtrados.length){lb.innerHTML='<div class="msg">Sin resultados.</div>';return;}
+  lb.innerHTML=_filtrados.map((p,i)=>{
+    const sc=p.sexo==='M'?'sexo-m':p.sexo==='F'?'sexo-f':'';
+    const b=p.sexo==='M'?'<span class="pac-badge badge-m">M</span>':p.sexo==='F'?'<span class="pac-badge badge-f">F</span>':'';
+    const nv=(p.visitas||[]).length;
+    return`<div class="pac-item ${sc}" onclick="sel(${i})" id="pi${i}">
+      <div class="pac-nombre">${x(p.apellido)}, ${x(p.nombre)} ${b}</div>
+      <div class="pac-sub"><span>DNI ${x(p.dni||'—')}</span>${edad(p.fn)?'<span>· '+edad(p.fn)+'</span>':''}${p.os?'<span>· '+x(p.os)+'</span>':''}</div>
+      <div class="pac-nv">${nv} visita${nv!==1?'s':''}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ── SELECCIÓN ── */
+function sel(i){
+  _sel=i;
+  document.querySelectorAll('.pac-item').forEach(e=>e.classList.remove('active'));
+  const el=document.getElementById('pi'+i);
+  if(el){el.classList.add('active');el.scrollIntoView({block:'nearest'});}
+  renderDetalle(_filtrados[i]);
+  if(window.innerWidth<=768) mostrarTab('detalle');
+}
+
+/* ── DETALLE ── */
+function renderDetalle(p){
+  const sc=p.sexo==='M'?'sexo-m':p.sexo==='F'?'sexo-f':'';
+  const vs=p.visitas||[];
+  const dp=document.getElementById('detailPane');
+
+  dp.innerHTML=`
+  <button class="btn-volver" onclick="mostrarTab('lista')">← Volver a la lista</button>
+
+  <div class="card">
+    <div class="card-header ${sc}">
+      👤 ${x(p.apellido)}, ${x(p.nombre)}
+      ${p.sexo==='M'?'<span class="pac-badge badge-m" style="margin-left:6px">M</span>':p.sexo==='F'?'<span class="pac-badge badge-f" style="margin-left:6px">F</span>':''}
+    </div>
+    <div class="card-body">
+      <div class="pac-grid">
+        ${d('DNI',p.dni)}${d('Fecha nac.',ff(p.fn))}${d('Edad',edad(p.fn))}
+        ${d('Obra Social',p.os)}${d('Plan',p.plan)}${d('N° afiliado',p.afiliado)}
+        ${d('Teléfono',p.tel)}${d('Email',p.email)}
+        ${d('Tutor',p.tutor)}${d('Domicilio',p.domicilio)}${d('Localidad',p.localidad)}
+      </div>
+      ${p.obs?`<div style="margin-top:10px;padding:10px;background:#fffbea;border:1px solid #f0d060;border-radius:6px;font-size:12px;color:#7a5c00;line-height:1.5"><strong style="display:block;font-size:10px;text-transform:uppercase;color:#b8860b;margin-bottom:3px">Observaciones</strong>${x(p.obs)}</div>`:''}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header ${sc}" style="justify-content:space-between">
+      <span>📋 Historial de consultas</span>
+      <span style="font-size:12px;opacity:.85">${vs.length} visita${vs.length!==1?'s':''}</span>
+    </div>
+    ${vs.length===0?'<div class="msg">Sin consultas registradas.</div>':`
+    <div class="vis-filtros">
+      <input type="text" id="vB" placeholder="🔍 Buscar en consultas..." oninput="fV()" />
+      <div class="ffila">
+        <input type="date" id="vD" onchange="fV()" placeholder="Desde"/>
+        <input type="date" id="vH" onchange="fV()" placeholder="Hasta"/>
+      </div>
+      <div id="vCnt"></div>
+    </div>
+    <div id="vW"></div>`}
+  </div>`;
+
+  dp.scrollTop=0;
+  if(vs.length) rV(vs);
+}
+
+function fV(){
+  const p=_filtrados[_sel];if(!p)return;
+  const q=(document.getElementById('vB')?.value||'').toLowerCase();
+  const d=document.getElementById('vD')?.value||'';
+  const h=document.getElementById('vH')?.value||'';
+  const fil=(p.visitas||[]).filter(v=>{
+    if(d&&v.fecha&&v.fecha<d)return false;
+    if(h&&v.fecha&&v.fecha>h)return false;
+    if(q&&![v.motivo,v.dx1,v.dx2,v.plan,v.medicacion,v.observaciones,v.estudios,v.tipo].filter(Boolean).join(' ').toLowerCase().includes(q))return false;
+    return true;
+  });
+  const c=document.getElementById('vCnt');
+  if(c)c.textContent=fil.length<(p.visitas||[]).length?fil.length+' de '+(p.visitas||[]).length+' visitas':'';
+  rV(fil);
+}
+
+function rV(visitas){
+  const w=document.getElementById('vW');if(!w)return;
+  if(!visitas.length){w.innerHTML='<div class="msg">Sin resultados.</div>';return;}
+  const ord=[...visitas].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  w.innerHTML=ord.map((v,i)=>{
+    const m=[v.peso,v.talla,v.pc].some(k=>k!=null);
+    const dx=[v.dx1,v.dx2].filter(Boolean).join(' / ');
+    return`<div class="vis-card">
+      <div class="vis-header" onclick="tv('vb${i}','vt${i}')">
+        <span class="vis-fecha">${v.fecha||'—'}</span>
+        ${v.tipo?`<span class="vis-tipo">${x(v.tipo)}</span>`:''}
+        <span class="vis-dx">${x(dx)}</span>
+        ${v.peso!=null?`<span class="vis-peso">${v.peso} kg</span>`:''}
+        <span class="vis-tog" id="vt${i}">▼ ver</span>
+      </div>
+      <div class="vis-body" id="vb${i}">
+        ${m?`<div class="meds">
+          ${mr(v.peso,'kg','Peso')}${mr(v.talla,'cm','Talla')}${mr(v.pc,'cm','PC')}${mr(v.imc,'','IMC')}
+          ${v.ta_sist!=null?mr(v.ta_sist+(v.ta_diast!=null?'/'+v.ta_diast:''),'mmHg','TA'):''}
+          ${mr(v.fc,'lpm','FC')}
+        </div>`:''}
+        <div class="vis-grid">
+          ${vc('Motivo',v.motivo)}${vc('Diagnóstico 1',v.dx1)}${vc('Diagnóstico 2',v.dx2)}
+          ${vc('Plan',v.plan,1)}${vc('Medicación',v.medicacion,1)}
+          ${vc('Pedido estudios',v.pedido_estudios,1)}${vc('Resultados',v.estudios,1)}
+          ${vc('Observaciones',v.observaciones,1)}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function tv(bId,tId){
+  const b=document.getElementById(bId),t=document.getElementById(tId);
+  if(!b)return;
+  const o=b.classList.toggle('open');
+  if(t)t.textContent=o?'▲ cerrar':'▼ ver';
+}
+
+function volverACarga(){
+  _datos=null;_filtrados=[];_sel=null;
+  document.getElementById('loadScreen').style.display='flex';
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('detailPane').innerHTML='';
+  document.getElementById('listBody').innerHTML='<div class="msg">Cargando...</div>';
+  document.getElementById('hiddenFileInput').value='';
+}
+
+/* ── HELPERS ── */
+function x(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function ff(fn){if(!fn)return'';const[y,m,dd]=fn.split('-');return(dd||'')+'/'+(m||'')+'/'+(y||'');}
+function edad(fn){
+  if(!fn)return'';
+  const hoy=new Date(),nac=new Date(fn+'T00:00:00');
+  if(isNaN(nac.getTime())||nac>hoy)return'';
+  const dias=Math.floor((hoy-nac)/864e5);
+  if(dias<31)return dias+' día'+(dias!==1?'s':'');
+  let a=hoy.getFullYear()-nac.getFullYear(),m=hoy.getMonth()-nac.getMonth(),dd=hoy.getDate()-nac.getDate();
+  if(dd<0){m--;dd+=new Date(hoy.getFullYear(),hoy.getMonth(),0).getDate();}
+  if(m<0){a--;m+=12;}
+  if(a===0)return m+(m===1?' mes':' meses')+(dd?' '+dd+(dd===1?' día':' días'):'');
+  return a+(a===1?' año':' años')+(m?' '+m+(m===1?' mes':' meses'):'');
+}
+function d(l,v){return`<div class="dato"><label>${l}</label><span class="${v?'':'nd'}">${x(v)||'—'}</span></div>`;}
+function vc(l,v,f=0){if(!v)return'';return`<div class="vis-campo${f?' full':''}}"><label>${l}</label><p>${x(v)}</p></div>`;}
+function mr(v,u,l){if(v==null||v==='')return'';return`<div class="med"><div class="v">${v}${u?' <small style="font-size:9px;font-weight:400">'+u+'</small>':''}</div><div class="l">${l}</div></div>`;}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  const u=sessionStorage.getItem('visor_url');
+  if(u)document.getElementById('urlInput').value=u;
+});
+</script>
+</body>
+</html>
